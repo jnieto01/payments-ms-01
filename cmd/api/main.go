@@ -4,50 +4,56 @@ import (
 	"fmt"
 	"log"
 
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/jnieto01/payments-ms/internal/adapter/rest/handler"
-	"github.com/jnieto01/payments-ms/internal/adapter/router"
-	appconfig "github.com/jnieto01/payments-ms/internal/config"
-	repoImpl "github.com/jnieto01/payments-ms/internal/repository"
-	"github.com/jnieto01/payments-ms/internal/usecase/impl"
-	"github.com/pressly/goose/v3"
-	"github.com/spf13/viper"
+	"github.com/jnieto01/payments-ms-01/internal/adapter/rest/handler"
+	"github.com/jnieto01/payments-ms-01/internal/adapter/router"
+	appconfig "github.com/jnieto01/payments-ms-01/internal/config"
+	repoImpl "github.com/jnieto01/payments-ms-01/internal/repository"
+	"github.com/jnieto01/payments-ms-01/internal/usecase/impl"
+	"github.com/jnieto01/utils-01/database"
+	utilsjwt "github.com/jnieto01/utils-01/jwt"
+	"github.com/jnieto01/utils-01/migration"
+	"github.com/redis/go-redis/v9"
 )
 
+const pathConfig = "./config/"
+
 func main() {
-	appconfig.LoadConfig()
+	cfg := appconfig.Load(pathConfig)
 
-	db := appconfig.InitDB()
-	redisClient := appconfig.InitRedis()
-	mpCfg := appconfig.LoadMercadoPagoConfig()
-
-	// Run migrations
-	if viper.GetBool("golang-migrate.mysql.enabled") {
-		sqlDB, err := db.DB()
-		if err != nil {
-			log.Fatalf("failed to get sql.DB: %v", err)
-		}
-		if err := goose.SetDialect("mysql"); err != nil {
-			log.Fatalf("goose set dialect: %v", err)
-		}
-		migrationsDir := viper.GetString("golang-migrate.mysql.locations")
-		if err := goose.Up(sqlDB, migrationsDir); err != nil {
-			log.Fatalf("goose up: %v", err)
-		}
-		log.Println("migrations applied successfully")
+	// Database
+	mysqlDB, err := database.NewDatabase(cfg.MySQL)
+	if err != nil {
+		log.Fatalf("Failed to create database: %v", err)
 	}
 
+	// Migrations
+	if err := migration.RunAutoMigrations(&cfg.MySQL, cfg.MySQLMigration); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
+	}
+
+	// Redis (raw client for SetNX idempotency)
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     cfg.RedisAddr,
+		Password: cfg.RedisPassword,
+		DB:       cfg.RedisDB,
+		PoolSize: cfg.RedisPoolSize,
+	})
+
+	// JWT service — same implementation as user-ms for compatible token validation
+	jwtService := utilsjwt.NewJWTService(cfg.JWT.SecretKey)
+
 	// Wire up dependencies
-	paymentRepo := repoImpl.NewPaymentRepository(db)
-	subscriptionRepo := repoImpl.NewSubscriptionRepository(db)
-	paymentUC := impl.NewPaymentUsecase(paymentRepo, subscriptionRepo, redisClient, mpCfg)
+	paymentRepo := repoImpl.NewPaymentRepository(mysqlDB.DB)
+	trialRepo := repoImpl.NewTrialRepository(mysqlDB.DB)
+	planRepo := repoImpl.NewPlanRepository(mysqlDB.DB)
+	commissionRepo := repoImpl.NewMarketplaceCommissionRepository(mysqlDB.DB)
+	paymentUC := impl.NewPaymentUsecase(paymentRepo, trialRepo, planRepo, commissionRepo, redisClient, cfg.MercadoPago, cfg.RabbitMQ)
 	paymentHandler := handler.NewPaymentHandler(paymentUC)
 
-	r := router.SetupRouter(paymentHandler)
+	r := router.SetupRouter(paymentHandler, jwtService)
 
-	port := viper.GetInt("server.port")
-	log.Printf("payments-ms starting on port %d", port)
-	if err := r.Run(fmt.Sprintf(":%d", port)); err != nil {
+	log.Printf("payments-ms-01 starting on port %d", cfg.Server.Port)
+	if err := r.Run(fmt.Sprintf(":%d", cfg.Server.Port)); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
 }

@@ -5,20 +5,24 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v4"
-	"github.com/spf13/viper"
+	utilsjwt "github.com/jnieto01/utils-01/jwt"
 )
 
-func AuthMiddleware() gin.HandlerFunc {
+// AuthMiddleware validates the JWT issued by user-ms using the shared utils-01/jwt service.
+// Token is read from the Authorization header (Bearer) or the "jwt" cookie.
+func AuthMiddleware(jwtService utilsjwt.JWTService) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
 		tokenStr := ""
 
+		// 1. Prefer Authorization header
+		authHeader := c.GetHeader("Authorization")
 		if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
 			tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
-		} else {
-			cookie, err := c.Cookie("jwt")
-			if err == nil {
+		}
+
+		// 2. Fall back to jwt cookie
+		if tokenStr == "" {
+			if cookie, err := c.Cookie("jwt"); err == nil {
 				tokenStr = cookie
 			}
 		}
@@ -28,21 +32,19 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		secret := viper.GetString("jwt.secret")
-		token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
-			return []byte(secret), nil
-		})
-		if err != nil || !token.Valid {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+		claims, err := jwtService.ValidateToken(tokenStr)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token: " + err.Error()})
 			return
 		}
 
-		if claims, ok := token.Claims.(jwt.MapClaims); ok {
-			if data, ok := claims["data"].(map[string]interface{}); ok {
-				if uid, ok := data["userId"].(string); ok {
-					c.Set("user_id", uid)
-				}
-			}
+		// Populate context from the "data" map in the JWT payload (same structure as user-ms).
+		data := claims.GetData()
+		if userID, ok := data["userId"].(string); ok {
+			c.Set("user_id", userID)
+		}
+		if email, ok := data["email"].(string); ok {
+			c.Set("user_email", email)
 		}
 
 		c.Next()

@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/jnieto01/payments-ms/internal/domain/entity"
-	domainrepo "github.com/jnieto01/payments-ms/internal/domain/repository"
+	"github.com/jnieto01/payments-ms-01/internal/domain/entity"
+	domainrepo "github.com/jnieto01/payments-ms-01/internal/domain/repository"
 	"gorm.io/gorm"
 )
 
@@ -42,6 +42,15 @@ func (r *paymentRepositoryImpl) GetByIdempotencyKey(ctx context.Context, key str
 func (r *paymentRepositoryImpl) GetByMPPaymentID(ctx context.Context, mpPaymentID int64) (*entity.Payment, error) {
 	var p entity.Payment
 	err := r.db.WithContext(ctx).Where("mp_payment_id = ?", mpPaymentID).First(&p).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &p, err
+}
+
+func (r *paymentRepositoryImpl) GetByExternalRef(ctx context.Context, externalRef string) (*entity.Payment, error) {
+	var p entity.Payment
+	err := r.db.WithContext(ctx).Where("external_ref = ?", externalRef).First(&p).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}

@@ -1,7 +1,7 @@
 server:
-  port: 8082
+  port: 8083
   host: "localhost"
-  context-path: "/payments-ms"
+  context-path: "/payments-ms-01"
   goEnv: "local"
 
 database:
@@ -29,8 +29,22 @@ data:
     db: 1
     pool-size: 10
 
+jwt:
+  secret:
+    key: "704abeeb8729b64730f948a4446d35868a22088d347d14da7c7002403e08"
+
 mercadopago:
-  access_token: "TEST-your-access-token-here"
-  webhook_secret: "your-webhook-secret-here"
+  access_token: APP_USR-708228168073386-041123-0b0a6f0f72be53912b081fd458c22c40-3330160398
+  webhook_secret: "a325f8d5bfc403ad1e12133d0b74c54623f52fa6a7553c81d331b8f1c5dbdd83"
   base_url: "https://api.mercadopago.com"
-  notification_url: "https://your-domain.com/payments-ms/api/payments/webhook"
+  notification_url: "https://7cfb-45-161-118-108.ngrok-free.app/payments-ms-01/api/payments/webhook"
+  # back_url base para Checkout Pro — el usecase agrega el sufijo /?payment=success|pending|failure
+  back_url: "https://nvfsport.com/app/es/mercado"
+
+rabbitmq:
+  host: "localhost"
+  port: "5672"
+  username: "guest"
+  password: "guest"
+  ssl:
+    enabled: false

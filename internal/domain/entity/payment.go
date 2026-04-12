@@ -29,6 +29,7 @@ type Payment struct {
 	MPPreferenceID string        `gorm:"type:varchar(255)"                  json:"mp_preference_id,omitempty"`
 	InitPoint      string        `gorm:"type:text"                          json:"init_point,omitempty"`
 	ExternalRef    string        `gorm:"type:varchar(255);index"            json:"external_ref,omitempty"`
+	ItemID         *int64        `gorm:"column:item_id;index"               json:"item_id,omitempty"`
 	CreatedAt      time.Time     `gorm:"autoCreateTime"                     json:"created_at"`
 	UpdatedAt      time.Time     `gorm:"autoUpdateTime"                     json:"updated_at"`
 }
