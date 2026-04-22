@@ -45,7 +45,6 @@ func NewPaymentUsecase(
 	if rmqCfg.Host != "" {
 		pub, err := rabbitmq.NewMessageService(rmqCfg, queueMarketplaceAdApproved)
 		if err != nil {
-			// Non-fatal: ad activation will be skipped until RabbitMQ is available
 			fmt.Printf("WARN: could not connect to RabbitMQ for ad publisher: %v\n", err)
 		} else {
 			adPublisher = pub
@@ -617,6 +616,37 @@ func (u *paymentUsecaseImpl) activateMarketplaceAd(ctx context.Context, itemID i
 	if err := u.adPublisher.PublishMessageWithCtx(ctx, payload); err != nil {
 		fmt.Printf("ERROR: failed to publish ad.approved event for item %d: %v\n", itemID, err)
 	}
+}
+
+func (u *paymentUsecaseImpl) ListPayments(ctx context.Context, from, to time.Time) ([]entity.Payment, error) {
+	return u.paymentRepo.ListByDateRange(ctx, from, to)
+}
+
+func (u *paymentUsecaseImpl) RegisterManualPayment(ctx context.Context, paymentID uint, req usecase.ManualPaymentRequest) error {
+	payment, err := u.paymentRepo.GetByID(ctx, paymentID)
+	if err != nil {
+		return fmt.Errorf("get payment: %w", err)
+	}
+	if payment == nil {
+		return fmt.Errorf("payment not found")
+	}
+	if payment.Status != entity.PaymentStatusPending {
+		return fmt.Errorf("payment is not pending (current status: %s)", payment.Status)
+	}
+
+	if err := u.paymentRepo.UpdateStatus(ctx, payment.ID, entity.PaymentStatusApproved, nil); err != nil {
+		return fmt.Errorf("update payment status: %w", err)
+	}
+
+	if payment.Type == entity.PaymentTypeSubscription {
+		return u.activateSubscription(ctx, payment.ClubID, payment.Plan, &payment.ID)
+	}
+
+	if payment.Type == entity.PaymentTypeAdvertising && payment.ItemID != nil {
+		u.activateMarketplaceAd(ctx, *payment.ItemID)
+	}
+
+	return nil
 }
 
 func mapMPPaymentStatus(mpStatus string) entity.PaymentStatus {

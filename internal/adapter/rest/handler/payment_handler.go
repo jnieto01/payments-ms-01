@@ -2,6 +2,8 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jnieto01/payments-ms-01/internal/usecase"
@@ -118,6 +120,55 @@ func (h *PaymentHandler) CreateMarketplaceCheckout(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": resp})
+}
+
+// GET /admin/payments?from=YYYY-MM-DD&to=YYYY-MM-DD
+func (h *PaymentHandler) ListPayments(c *gin.Context) {
+	today := time.Now().Format("2006-01-02")
+	fromStr := c.DefaultQuery("from", today)
+	toStr := c.DefaultQuery("to", today)
+
+	from, err := time.ParseInLocation("2006-01-02", fromStr, time.Local)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid from date, expected YYYY-MM-DD"})
+		return
+	}
+	to, err := time.ParseInLocation("2006-01-02", toStr, time.Local)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid to date, expected YYYY-MM-DD"})
+		return
+	}
+	// include the full last day
+	to = to.Add(24*time.Hour - time.Second)
+
+	payments, err := h.uc.ListPayments(c.Request.Context(), from, to)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": payments})
+}
+
+// POST /admin/payments/:id/manual
+func (h *PaymentHandler) RegisterManualPayment(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payment id"})
+		return
+	}
+
+	var req usecase.ManualPaymentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.uc.RegisterManualPayment(c.Request.Context(), uint(id), req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "approved"})
 }
 
 // POST /payments/webhook

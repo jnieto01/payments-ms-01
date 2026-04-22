@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/jnieto01/payments-ms-01/internal/domain/entity"
 	domainrepo "github.com/jnieto01/payments-ms-01/internal/domain/repository"
@@ -63,4 +64,13 @@ func (r *paymentRepositoryImpl) UpdateStatus(ctx context.Context, id uint, statu
 		updates["mp_payment_id"] = *mpPaymentID
 	}
 	return r.db.WithContext(ctx).Model(&entity.Payment{}).Where("id = ?", id).Updates(updates).Error
+}
+
+func (r *paymentRepositoryImpl) ListByDateRange(ctx context.Context, from, to time.Time) ([]entity.Payment, error) {
+	var payments []entity.Payment
+	err := r.db.WithContext(ctx).
+		Where("created_at >= ? AND created_at <= ?", from, to).
+		Order("created_at DESC").
+		Find(&payments).Error
+	return payments, err
 }

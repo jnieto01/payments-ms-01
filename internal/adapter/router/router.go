@@ -19,13 +19,21 @@ func SetupRouter(paymentHandler *handler.PaymentHandler, jwtService utilsjwt.JWT
 		api.GET("/subscriptions/status/:clubId", paymentHandler.GetSubscriptionStatus)
 		api.GET("/marketplace/commission", paymentHandler.GetMarketplaceCommission)
 
-		// Protected endpoints
+		// Protected endpoints (any authenticated user)
 		protected := api.Group("")
 		protected.Use(middleware.AuthMiddleware(jwtService))
 		{
 			protected.POST("/subscriptions/checkout", paymentHandler.CreateSubscriptionCheckout)
 			protected.POST("/subscriptions/trial", paymentHandler.StartTrial)
 			protected.POST("/marketplace/checkout", paymentHandler.CreateMarketplaceCheckout)
+		}
+
+		// Admin-only endpoints (role: admin_nvf)
+		admin := api.Group("/admin")
+		admin.Use(middleware.AdminMiddleware(jwtService))
+		{
+			admin.GET("/payments", paymentHandler.ListPayments)
+			admin.POST("/payments/:id/manual", paymentHandler.RegisterManualPayment)
 		}
 	}
 

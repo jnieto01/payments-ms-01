@@ -6,7 +6,7 @@ server:
 
 database:
   mysql:
-    name: "payments_ms"
+    name: "payments_ms_01"
     host: "localhost"
     port: 3306
     user: "root"
@@ -39,7 +39,12 @@ mercadopago:
   base_url: "https://api.mercadopago.com"
   notification_url: "https://7cfb-45-161-118-108.ngrok-free.app/payments-ms-01/api/payments/webhook"
   # back_url base para Checkout Pro — el usecase agrega el sufijo /?payment=success|pending|failure
-  back_url: "https://nvfsport.com/app/es/mercado"
+  back_url: "https://4b45-45-161-118-110.ngrok-free.app/app/es/home"
+
+payment-trasnfer:
+  cbu/cvu: "1234567890"
+  alias: "test.mp"
+  
 
 rabbitmq:
   host: "localhost"

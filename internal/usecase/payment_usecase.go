@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"time"
 
 	"github.com/jnieto01/payments-ms-01/internal/domain/entity"
 )
@@ -89,6 +90,11 @@ type MarketplaceCheckoutResponse struct {
 	PreferenceID   string  `json:"preference_id"`
 }
 
+// ManualPaymentRequest is used by the admin to manually approve a pending payment.
+type ManualPaymentRequest struct {
+	Notes string `json:"notes"`
+}
+
 type PaymentUsecase interface {
 	CreateSubscriptionCheckout(ctx context.Context, req CheckoutRequest) (*CheckoutResponse, error)
 	HandleWebhook(ctx context.Context, payload WebhookPayload, xSignature, xRequestID string) error
@@ -97,4 +103,7 @@ type PaymentUsecase interface {
 	GetPlans(ctx context.Context) ([]entity.Plan, error)
 	GetMarketplaceCommission(ctx context.Context) (*MarketplaceCommissionResponse, error)
 	CreateMarketplaceCheckout(ctx context.Context, req MarketplaceCheckoutRequest) (*MarketplaceCheckoutResponse, error)
+	// Admin-only
+	ListPayments(ctx context.Context, from, to time.Time) ([]entity.Payment, error)
+	RegisterManualPayment(ctx context.Context, paymentID uint, req ManualPaymentRequest) error
 }

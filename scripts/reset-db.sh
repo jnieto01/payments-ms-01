@@ -8,7 +8,7 @@ set -e
 echo "🔄 Resetting database..."
 
 # Default values
-DB_NAME=${DB_NAME:-payments_ms}
+DB_NAME=${DB_NAME:-payments_ms_01}
 MYSQL_CONTAINER=mysql
 MYSQL_USER=root
 MYSQL_PASSWORD=123456

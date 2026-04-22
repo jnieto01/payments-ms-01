@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/jnieto01/payments-ms-01/internal/domain/entity"
 )
@@ -13,4 +14,5 @@ type PaymentRepository interface {
 	GetByMPPaymentID(ctx context.Context, mpPaymentID int64) (*entity.Payment, error)
 	GetByExternalRef(ctx context.Context, externalRef string) (*entity.Payment, error)
 	UpdateStatus(ctx context.Context, id uint, status entity.PaymentStatus, mpPaymentID *int64) error
+	ListByDateRange(ctx context.Context, from, to time.Time) ([]entity.Payment, error)
 }
