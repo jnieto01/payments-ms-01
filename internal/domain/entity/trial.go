@@ -14,6 +14,7 @@ const (
 type Trial struct {
 	ID                  uint        `gorm:"primaryKey;autoIncrement"              json:"id"`
 	ClubID              string      `gorm:"type:varchar(100);not null;uniqueIndex" json:"club_id"`
+	ClubNombre          string      `gorm:"type:varchar(150);not null;default:''"  json:"club_nombre"`
 	Plan                string      `gorm:"type:varchar(50);not null"              json:"plan"`
 	Status              TrialStatus `gorm:"type:varchar(50);not null;default:active" json:"status"`
 	IsTrial             bool        `gorm:"not null;default:false"                json:"is_trial"`

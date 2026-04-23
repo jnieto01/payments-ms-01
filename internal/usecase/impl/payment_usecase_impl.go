@@ -419,10 +419,15 @@ func (u *paymentUsecaseImpl) handlePaymentEvent(ctx context.Context, mpPaymentID
 		return u.expireSubscription(ctx, payment.ClubID)
 	}
 
-	// Activate marketplace ad after confirmed payment
+	// Activate marketplace ad after confirmed payment.
+	// Guard: skip if a separate approved record already exists for this item
+	// (means admin manually confirmed before the webhook arrived).
 	if newStatus == entity.PaymentStatusApproved && payment.Type == entity.PaymentTypeAdvertising {
 		if payment.ItemID != nil {
-			u.activateMarketplaceAd(ctx, *payment.ItemID)
+			alreadyApproved, _ := u.paymentRepo.GetApprovedByItemID(ctx, *payment.ItemID)
+			if alreadyApproved == nil || alreadyApproved.ID == payment.ID {
+				u.activateMarketplaceAd(ctx, *payment.ItemID)
+			}
 		}
 	}
 
@@ -647,6 +652,260 @@ func (u *paymentUsecaseImpl) RegisterManualPayment(ctx context.Context, paymentI
 	}
 
 	return nil
+}
+
+// HandleManualAdPaymentConfirmed records an advertising payment that was manually confirmed by admin.
+// Idempotent: skips creation if an approved payment for the same item already exists.
+func (u *paymentUsecaseImpl) HandleManualAdPaymentConfirmed(ctx context.Context, msg usecase.AdvertisingPaymentConfirmedMsg) error {
+	idempotencyKey := fmt.Sprintf("advertising-manual-%d", msg.ItemID)
+
+	existing, err := u.paymentRepo.GetByIdempotencyKey(ctx, idempotencyKey)
+	if err != nil {
+		return fmt.Errorf("check idempotency key: %w", err)
+	}
+	if existing != nil {
+		return nil
+	}
+
+	alreadyApproved, err := u.paymentRepo.GetApprovedByItemID(ctx, msg.ItemID)
+	if err != nil {
+		return fmt.Errorf("check approved by item: %w", err)
+	}
+	if alreadyApproved != nil {
+		return nil
+	}
+
+	payment := &entity.Payment{
+		ClubID:         msg.SellerID,
+		UserID:         msg.SellerID,
+		Type:           entity.PaymentTypeAdvertising,
+		Amount:         msg.Amount,
+		Currency:       "ARS",
+		Status:         entity.PaymentStatusApproved,
+		IdempotencyKey: idempotencyKey,
+		ItemID:         &msg.ItemID,
+		PaymentMethod:  entity.PaymentMethod(msg.PaymentMethod),
+	}
+	if err := u.paymentRepo.Create(ctx, payment); err != nil {
+		return fmt.Errorf("create advertising payment record: %w", err)
+	}
+	return nil
+}
+
+func (u *paymentUsecaseImpl) AdminListTrials(ctx context.Context) ([]usecase.AdminTrialResponse, error) {
+	trials, err := u.trialRepo.GetAll(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list trials: %w", err)
+	}
+	now := time.Now()
+	result := make([]usecase.AdminTrialResponse, 0, len(trials))
+	for _, t := range trials {
+		result = append(result, mapTrialToAdminResponse(t, now))
+	}
+	return result, nil
+}
+
+func (u *paymentUsecaseImpl) AdminAssignTrial(ctx context.Context, req usecase.AdminAssignTrialRequest) error {
+	now := time.Now()
+	trialEnd := now.AddDate(0, 0, req.Days)
+	trial := &entity.Trial{
+		ClubID:        req.ClubID,
+		Plan:          req.Plan,
+		Status:        entity.TrialStatusTrial,
+		IsTrial:       true,
+		TrialStartsAt: &now,
+		TrialEndsAt:   &trialEnd,
+		StartsAt:      now,
+		EndsAt:        trialEnd,
+	}
+	return u.trialRepo.Upsert(ctx, trial)
+}
+
+func (u *paymentUsecaseImpl) AdminExtendTrial(ctx context.Context, id uint, days int) error {
+	trial, err := u.trialRepo.GetByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("get trial: %w", err)
+	}
+	if trial == nil {
+		return fmt.Errorf("trial not found")
+	}
+	if trial.Status == entity.TrialStatusCanceled {
+		return fmt.Errorf("cannot extend a canceled trial")
+	}
+	return u.trialRepo.ExtendTrial(ctx, id, days)
+}
+
+func (u *paymentUsecaseImpl) AdminCancelTrial(ctx context.Context, id uint) error {
+	trial, err := u.trialRepo.GetByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("get trial: %w", err)
+	}
+	if trial == nil {
+		return fmt.Errorf("trial not found")
+	}
+	return u.trialRepo.UpdateStatus(ctx, id, entity.TrialStatusCanceled)
+}
+
+func mapTrialToAdminResponse(t entity.Trial, now time.Time) usecase.AdminTrialResponse {
+	fechaInicio := t.StartsAt
+	if t.IsTrial && t.TrialStartsAt != nil {
+		fechaInicio = *t.TrialStartsAt
+	}
+	fechaFin := t.EndsAt
+	if t.IsTrial && t.TrialEndsAt != nil {
+		fechaFin = *t.TrialEndsAt
+	}
+
+	diasRestantes := 0
+	if t.Status == entity.TrialStatusTrial || t.Status == entity.TrialStatusActive {
+		d := int(fechaFin.Sub(now).Hours() / 24)
+		if d > 0 {
+			diasRestantes = d
+		}
+	}
+
+	estado := "activo"
+	switch t.Status {
+	case entity.TrialStatusExpired:
+		estado = "vencido"
+	case entity.TrialStatusCanceled:
+		estado = "cancelado"
+	}
+
+	return usecase.AdminTrialResponse{
+		ID:            t.ID,
+		ClubID:        t.ClubID,
+		ClubNombre:    "",
+		Plan:          t.Plan,
+		FechaInicio:   fechaInicio.Format(time.RFC3339),
+		FechaFin:      fechaFin.Format(time.RFC3339),
+		DiasRestantes: diasRestantes,
+		Estado:        estado,
+	}
+}
+
+func (u *paymentUsecaseImpl) AdminGetPlans(ctx context.Context) ([]entity.Plan, error) {
+	return u.planRepo.GetAllAdmin(ctx)
+}
+
+func (u *paymentUsecaseImpl) AdminGetPlanByID(ctx context.Context, id uint) (*entity.Plan, error) {
+	return u.planRepo.GetByID(ctx, id)
+}
+
+func (u *paymentUsecaseImpl) AdminCreatePlan(ctx context.Context, req usecase.CreatePlanRequest) (*entity.Plan, error) {
+	currency := req.Currency
+	if currency == "" {
+		currency = "ARS"
+	}
+	period := req.Period
+	if period == "" {
+		period = "monthly"
+	}
+	warningDays := req.WarningDays
+	if warningDays == 0 {
+		warningDays = 5
+	}
+
+	plan := &entity.Plan{
+		PlanKey:     req.PlanKey,
+		Name:        req.Name,
+		ShortName:   req.ShortName,
+		Price:       req.Price,
+		Currency:    currency,
+		Period:      period,
+		Features:    entity.StringSlice(req.Features),
+		TrialDays:   req.TrialDays,
+		WarningDays: warningDays,
+		IsActive:    true,
+	}
+	if err := u.planRepo.Create(ctx, plan); err != nil {
+		return nil, fmt.Errorf("create plan: %w", err)
+	}
+	return plan, nil
+}
+
+func (u *paymentUsecaseImpl) AdminUpdatePlan(ctx context.Context, id uint, req usecase.UpdatePlanRequest) (*entity.Plan, error) {
+	plan, err := u.planRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("get plan: %w", err)
+	}
+	if plan == nil {
+		return nil, fmt.Errorf("plan not found")
+	}
+
+	fields := map[string]any{}
+	if req.Name != nil {
+		fields["name"] = *req.Name
+	}
+	if req.ShortName != nil {
+		fields["short_name"] = *req.ShortName
+	}
+	if req.Price != nil {
+		fields["price"] = *req.Price
+	}
+	if req.Currency != nil {
+		fields["currency"] = *req.Currency
+	}
+	if req.Period != nil {
+		fields["period"] = *req.Period
+	}
+	if req.Features != nil {
+		fields["features"] = entity.StringSlice(req.Features)
+	}
+	if req.TrialDays != nil {
+		fields["trial_days"] = *req.TrialDays
+	}
+	if req.WarningDays != nil {
+		fields["warning_days"] = *req.WarningDays
+	}
+	if req.IsActive != nil {
+		fields["is_active"] = *req.IsActive
+	}
+
+	if len(fields) == 0 {
+		return plan, nil
+	}
+	if err := u.planRepo.Update(ctx, id, fields); err != nil {
+		return nil, fmt.Errorf("update plan: %w", err)
+	}
+	return u.planRepo.GetByID(ctx, id)
+}
+
+func (u *paymentUsecaseImpl) AdminTogglePlan(ctx context.Context, id uint) error {
+	plan, err := u.planRepo.GetByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("get plan: %w", err)
+	}
+	if plan == nil {
+		return fmt.Errorf("plan not found")
+	}
+	return u.planRepo.Update(ctx, id, map[string]any{"is_active": !plan.IsActive})
+}
+
+func (u *paymentUsecaseImpl) AdminLinkMPPlan(ctx context.Context, id uint) error {
+	plan, err := u.planRepo.GetByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("get plan: %w", err)
+	}
+	if plan == nil {
+		return fmt.Errorf("plan not found")
+	}
+	if plan.MPPreapprovalPlanID != "" {
+		return nil // already linked, idempotent
+	}
+
+	resp, err := u.mp.CreatePreapprovalPlan(ctx, MPPreapprovalPlanRequest{
+		Reason:        fmt.Sprintf("NVF Sports — Plan %s", plan.Name),
+		Frequency:     1,
+		FrequencyType: "months",
+		Amount:        plan.Price,
+		CurrencyID:    plan.Currency,
+		BackURL:       u.mpCfg.BackURL,
+	})
+	if err != nil {
+		return fmt.Errorf("create MP preapproval plan: %w", err)
+	}
+	return u.planRepo.UpdateMPPreapprovalPlan(ctx, id, resp.ID, resp.InitPoint)
 }
 
 func mapMPPaymentStatus(mpStatus string) entity.PaymentStatus {

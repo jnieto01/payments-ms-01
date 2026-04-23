@@ -34,6 +34,16 @@ func SetupRouter(paymentHandler *handler.PaymentHandler, jwtService utilsjwt.JWT
 		{
 			admin.GET("/payments", paymentHandler.ListPayments)
 			admin.POST("/payments/:id/manual", paymentHandler.RegisterManualPayment)
+			admin.GET("/trials", paymentHandler.AdminListTrials)
+			admin.POST("/trials", paymentHandler.AdminAssignTrial)
+			admin.PATCH("/trials/:id", paymentHandler.AdminExtendTrial)
+			admin.DELETE("/trials/:id", paymentHandler.AdminCancelTrial)
+			admin.GET("/plans", paymentHandler.AdminListPlans)
+			admin.GET("/plans/:id", paymentHandler.AdminGetPlanByID)
+			admin.POST("/plans", paymentHandler.AdminCreatePlan)
+			admin.PUT("/plans/:id", paymentHandler.AdminUpdatePlan)
+			admin.PATCH("/plans/:id/toggle", paymentHandler.AdminTogglePlan)
+			admin.POST("/plans/:id/mp-link", paymentHandler.AdminLinkMPPlan)
 		}
 	}
 

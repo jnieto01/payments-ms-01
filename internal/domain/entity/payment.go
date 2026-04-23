@@ -4,6 +4,7 @@ import "time"
 
 type PaymentType string
 type PaymentStatus string
+type PaymentMethod string
 
 const (
 	PaymentTypeSubscription PaymentType = "subscription"
@@ -13,6 +14,9 @@ const (
 	PaymentStatusApproved PaymentStatus = "approved"
 	PaymentStatusRejected PaymentStatus = "rejected"
 	PaymentStatusCanceled PaymentStatus = "canceled"
+
+	PaymentMethodTransfer    PaymentMethod = "transfer"
+	PaymentMethodMercadoPago PaymentMethod = "mercado_pago"
 )
 
 type Payment struct {
@@ -30,6 +34,7 @@ type Payment struct {
 	InitPoint      string        `gorm:"type:text"                          json:"init_point,omitempty"`
 	ExternalRef    string        `gorm:"type:varchar(255);index"            json:"external_ref,omitempty"`
 	ItemID         *int64        `gorm:"column:item_id;index"               json:"item_id,omitempty"`
+	PaymentMethod  PaymentMethod `gorm:"column:payment_method;type:varchar(50)" json:"payment_method,omitempty"`
 	CreatedAt      time.Time     `gorm:"autoCreateTime"                     json:"created_at"`
 	UpdatedAt      time.Time     `gorm:"autoUpdateTime"                     json:"updated_at"`
 }

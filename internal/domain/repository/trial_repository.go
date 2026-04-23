@@ -8,7 +8,10 @@ import (
 
 type TrialRepository interface {
 	Upsert(ctx context.Context, trial *entity.Trial) error
+	GetAll(ctx context.Context) ([]entity.Trial, error)
+	GetByID(ctx context.Context, id uint) (*entity.Trial, error)
 	GetByClubID(ctx context.Context, clubID string) (*entity.Trial, error)
 	UpdateStatus(ctx context.Context, id uint, status entity.TrialStatus) error
 	UpdatePreapproval(ctx context.Context, id uint, mpPreapprovalID, mpStatus string) error
+	ExtendTrial(ctx context.Context, id uint, days int) error
 }

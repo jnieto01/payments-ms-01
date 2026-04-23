@@ -31,6 +31,34 @@ func (r *trialRepositoryImpl) Upsert(ctx context.Context, trial *entity.Trial) e
 		Create(trial).Error
 }
 
+func (r *trialRepositoryImpl) GetAll(ctx context.Context) ([]entity.Trial, error) {
+	var trials []entity.Trial
+	err := r.db.WithContext(ctx).Order("created_at DESC").Find(&trials).Error
+	return trials, err
+}
+
+func (r *trialRepositoryImpl) GetByID(ctx context.Context, id uint) (*entity.Trial, error) {
+	var t entity.Trial
+	err := r.db.WithContext(ctx).First(&t, id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &t, err
+}
+
+func (r *trialRepositoryImpl) ExtendTrial(ctx context.Context, id uint, days int) error {
+	return r.db.WithContext(ctx).Exec(
+		`UPDATE trials
+		 SET ends_at       = DATE_ADD(ends_at, INTERVAL ? DAY),
+		     trial_ends_at = CASE WHEN trial_ends_at IS NOT NULL
+		                         THEN DATE_ADD(trial_ends_at, INTERVAL ? DAY)
+		                         ELSE NULL END,
+		     updated_at    = NOW()
+		 WHERE id = ?`,
+		days, days, id,
+	).Error
+}
+
 func (r *trialRepositoryImpl) GetByClubID(ctx context.Context, clubID string) (*entity.Trial, error) {
 	var t entity.Trial
 	err := r.db.WithContext(ctx).Where("club_id = ?", clubID).First(&t).Error

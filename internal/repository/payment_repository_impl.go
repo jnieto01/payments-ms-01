@@ -66,6 +66,17 @@ func (r *paymentRepositoryImpl) UpdateStatus(ctx context.Context, id uint, statu
 	return r.db.WithContext(ctx).Model(&entity.Payment{}).Where("id = ?", id).Updates(updates).Error
 }
 
+func (r *paymentRepositoryImpl) GetApprovedByItemID(ctx context.Context, itemID int64) (*entity.Payment, error) {
+	var p entity.Payment
+	err := r.db.WithContext(ctx).
+		Where("item_id = ? AND status = ?", itemID, entity.PaymentStatusApproved).
+		First(&p).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &p, err
+}
+
 func (r *paymentRepositoryImpl) ListByDateRange(ctx context.Context, from, to time.Time) ([]entity.Payment, error) {
 	var payments []entity.Payment
 	err := r.db.WithContext(ctx).

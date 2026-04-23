@@ -1,4 +1,4 @@
-.PHONY: help build run test clean docker-build docker-run docker-stop migrate-up migrate-down migrate-create migrate-version migrate-force migrate-reset
+.PHONY: help build run test clean docker-build docker-run docker-stop migrate-up migrate-down migrate-create migrate-version migrate-force migrate-reset seed-mp-plans
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -12,8 +12,9 @@ build: ## Build the application
 run: ## Run the application
 	go run cmd/api/main.go
 
-seed-mp-plans: ## Create MercadoPago preapproval plans for active local plans without one (idempotent)
-	go run ./cmd/seed/main.go
+seed-mp-plans: ## Deprecated: use POST /admin/plans/:id/mp-link via the admin UI instead
+	@echo "seed-mp-plans was removed. Use POST /payments-ms-01/api/admin/plans/:id/mp-link instead."
+	@exit 1
 
 test: ## Run tests
 	go test -v ./...

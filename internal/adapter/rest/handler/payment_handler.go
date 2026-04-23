@@ -171,6 +171,160 @@ func (h *PaymentHandler) RegisterManualPayment(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "approved"})
 }
 
+// GET /admin/trials
+func (h *PaymentHandler) AdminListTrials(c *gin.Context) {
+	trials, err := h.uc.AdminListTrials(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": trials})
+}
+
+// POST /admin/trials
+func (h *PaymentHandler) AdminAssignTrial(c *gin.Context) {
+	var req usecase.AdminAssignTrialRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := h.uc.AdminAssignTrial(c.Request.Context(), req); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"status": "assigned"})
+}
+
+// PATCH /admin/trials/:id
+func (h *PaymentHandler) AdminExtendTrial(c *gin.Context) {
+	id, err := parseUintParam(c, "id")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid trial id"})
+		return
+	}
+	var req usecase.AdminExtendTrialRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := h.uc.AdminExtendTrial(c.Request.Context(), id, req.Days); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "extended"})
+}
+
+// DELETE /admin/trials/:id
+func (h *PaymentHandler) AdminCancelTrial(c *gin.Context) {
+	id, err := parseUintParam(c, "id")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid trial id"})
+		return
+	}
+	if err := h.uc.AdminCancelTrial(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "canceled"})
+}
+
+// GET /admin/plans
+func (h *PaymentHandler) AdminListPlans(c *gin.Context) {
+	plans, err := h.uc.AdminGetPlans(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": plans})
+}
+
+// GET /admin/plans/:id
+func (h *PaymentHandler) AdminGetPlanByID(c *gin.Context) {
+	id, err := parseUintParam(c, "id")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid plan id"})
+		return
+	}
+	plan, err := h.uc.AdminGetPlanByID(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if plan == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "plan not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": plan})
+}
+
+// POST /admin/plans
+func (h *PaymentHandler) AdminCreatePlan(c *gin.Context) {
+	var req usecase.CreatePlanRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	plan, err := h.uc.AdminCreatePlan(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"data": plan})
+}
+
+// PUT /admin/plans/:id
+func (h *PaymentHandler) AdminUpdatePlan(c *gin.Context) {
+	id, err := parseUintParam(c, "id")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid plan id"})
+		return
+	}
+	var req usecase.UpdatePlanRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	plan, err := h.uc.AdminUpdatePlan(c.Request.Context(), id, req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": plan})
+}
+
+// PATCH /admin/plans/:id/toggle
+func (h *PaymentHandler) AdminTogglePlan(c *gin.Context) {
+	id, err := parseUintParam(c, "id")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid plan id"})
+		return
+	}
+	if err := h.uc.AdminTogglePlan(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+// POST /admin/plans/:id/mp-link
+func (h *PaymentHandler) AdminLinkMPPlan(c *gin.Context) {
+	id, err := parseUintParam(c, "id")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid plan id"})
+		return
+	}
+	if err := h.uc.AdminLinkMPPlan(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "linked"})
+}
+
+func parseUintParam(c *gin.Context, name string) (uint, error) {
+	v, err := strconv.ParseUint(c.Param(name), 10, 64)
+	return uint(v), err
+}
+
 // POST /payments/webhook
 func (h *PaymentHandler) HandleWebhook(c *gin.Context) {
 
