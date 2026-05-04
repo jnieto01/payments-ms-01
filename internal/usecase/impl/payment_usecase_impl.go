@@ -102,6 +102,18 @@ func (u *paymentUsecaseImpl) GetTrialStatus(ctx context.Context, clubID string) 
 
 	// Trial path
 	if trial.IsTrial && trial.TrialEndsAt != nil {
+		// Admin-canceled trial → basico, same behavior as expired
+		if trial.Status == entity.TrialStatusCanceled {
+			return &usecase.TrialStatusResponse{
+				Plan:                 "basico",
+				Status:               "canceled",
+				IsTrial:              false,
+				DaysRemaining:        0,
+				ShowWarning:          false,
+				WarningThresholdDays: warningDays,
+			}, nil
+		}
+
 		daysLeft := int(trial.TrialEndsAt.Sub(now).Hours() / 24)
 
 		// Trial expired → revert to basico
@@ -710,6 +722,7 @@ func (u *paymentUsecaseImpl) AdminAssignTrial(ctx context.Context, req usecase.A
 	trialEnd := now.AddDate(0, 0, req.Days)
 	trial := &entity.Trial{
 		ClubID:        req.ClubID,
+		ClubNombre:    req.ClubNombre,
 		Plan:          req.Plan,
 		Status:        entity.TrialStatusTrial,
 		IsTrial:       true,
@@ -775,7 +788,7 @@ func mapTrialToAdminResponse(t entity.Trial, now time.Time) usecase.AdminTrialRe
 	return usecase.AdminTrialResponse{
 		ID:            t.ID,
 		ClubID:        t.ClubID,
-		ClubNombre:    "",
+		ClubNombre:    t.ClubNombre,
 		Plan:          t.Plan,
 		FechaInicio:   fechaInicio.Format(time.RFC3339),
 		FechaFin:      fechaFin.Format(time.RFC3339),
@@ -811,6 +824,7 @@ func (u *paymentUsecaseImpl) AdminCreatePlan(ctx context.Context, req usecase.Cr
 		Name:        req.Name,
 		ShortName:   req.ShortName,
 		Price:       req.Price,
+		PriceUSD:    req.PriceUSD,
 		Currency:    currency,
 		Period:      period,
 		Features:    entity.StringSlice(req.Features),
@@ -842,6 +856,9 @@ func (u *paymentUsecaseImpl) AdminUpdatePlan(ctx context.Context, id uint, req u
 	}
 	if req.Price != nil {
 		fields["price"] = *req.Price
+	}
+	if req.PriceUSD != nil {
+		fields["price_usd"] = *req.PriceUSD
 	}
 	if req.Currency != nil {
 		fields["currency"] = *req.Currency
@@ -960,19 +977,10 @@ func (u *paymentUsecaseImpl) CreateMarketplaceCheckout(ctx context.Context, req 
 		}, nil
 	}
 
-	// 2. Get active commission config
-	commission, err := u.commissionRepo.GetActive(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("get commission config: %w", err)
-	}
-	percentage := 0.02
+	// The frontend sends the pre-calculated fixed fee (from advertising-settings).
+	// Use it directly; do not apply an additional percentage.
 	currency := "ARS"
-	if commission != nil {
-		percentage = commission.Percentage
-		currency = commission.Currency
-	}
-
-	commissionAmt := req.Price * percentage
+	commissionAmt := req.Price
 	if commissionAmt < 1 {
 		commissionAmt = 1 // MP minimum
 	}

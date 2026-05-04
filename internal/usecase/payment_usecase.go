@@ -126,6 +126,7 @@ type CreatePlanRequest struct {
 	Name        string   `json:"name"         validate:"required"`
 	ShortName   string   `json:"short_name"`
 	Price       float64  `json:"price"        validate:"gte=0"`
+	PriceUSD    float64  `json:"price_usd"`
 	Currency    string   `json:"currency"`
 	Period      string   `json:"period"`
 	Features    []string `json:"features"`
@@ -138,6 +139,7 @@ type UpdatePlanRequest struct {
 	Name        *string  `json:"name,omitempty"`
 	ShortName   *string  `json:"short_name,omitempty"`
 	Price       *float64 `json:"price,omitempty"`
+	PriceUSD    *float64 `json:"price_usd,omitempty"`
 	Currency    *string  `json:"currency,omitempty"`
 	Period      *string  `json:"period,omitempty"`
 	Features    []string `json:"features,omitempty"`

@@ -1,0 +1,2 @@
+ALTER TABLE plans
+    ADD COLUMN price_usd DECIMAL(12,2) NOT NULL DEFAULT 0 AFTER price;

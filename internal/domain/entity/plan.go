@@ -34,6 +34,7 @@ type Plan struct {
 	Name                 string      `gorm:"type:varchar(100);not null" json:"name"`
 	ShortName            string      `gorm:"type:varchar(20);not null;default:''" json:"short_name"`
 	Price                float64     `gorm:"type:decimal(12,2);not null" json:"price"`
+	PriceUSD             float64     `gorm:"type:decimal(12,2);not null;default:0;column:price_usd" json:"price_usd"`
 	Currency             string      `gorm:"type:varchar(10);not null;default:ARS" json:"currency"`
 	Period               string      `gorm:"type:varchar(50);not null;default:monthly" json:"period"`
 	Features             StringSlice `gorm:"type:json;not null" json:"features"`

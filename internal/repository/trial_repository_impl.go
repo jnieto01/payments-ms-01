@@ -23,7 +23,7 @@ func (r *trialRepositoryImpl) Upsert(ctx context.Context, trial *entity.Trial) e
 		Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "club_id"}},
 			DoUpdates: clause.AssignmentColumns([]string{
-				"plan", "status", "is_trial", "trial_starts_at", "trial_ends_at",
+				"club_nombre", "plan", "status", "is_trial", "trial_starts_at", "trial_ends_at",
 				"payment_id", "mp_preapproval_id", "mp_preapproval_status",
 				"starts_at", "ends_at", "updated_at",
 			}),
