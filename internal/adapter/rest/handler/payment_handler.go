@@ -6,8 +6,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"github.com/jnieto01/payments-ms-01/internal/usecase"
 )
+
+var validate = validator.New()
 
 type PaymentHandler struct {
 	uc usecase.PaymentUsecase
@@ -21,7 +24,7 @@ func NewPaymentHandler(uc usecase.PaymentUsecase) *PaymentHandler {
 func (h *PaymentHandler) GetPlans(c *gin.Context) {
 	plans, err := h.uc.GetPlans(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": plans})
@@ -37,7 +40,7 @@ func (h *PaymentHandler) GetSubscriptionStatus(c *gin.Context) {
 
 	status, err := h.uc.GetTrialStatus(c.Request.Context(), clubID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": status})
@@ -47,6 +50,10 @@ func (h *PaymentHandler) GetSubscriptionStatus(c *gin.Context) {
 func (h *PaymentHandler) StartTrial(c *gin.Context) {
 	var req usecase.TrialRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validate.Struct(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -66,24 +73,22 @@ func (h *PaymentHandler) CreateSubscriptionCheckout(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
-	// Enrich request from JWT context — never trust these fields from the body.
-	if userID, ok := c.Get("userId"); ok && userID != nil {
-		req.UserID = userID.(string)
+	if err := validate.Struct(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
 
-
-	if email, ok := c.Get("email"); ok && email != nil {
+	// Enrich request from JWT context — never trust these fields from the body.
+	if userID, ok := c.Get("user_id"); ok && userID != nil {
+		req.UserID = userID.(string)
+	}
+	if email, ok := c.Get("user_email"); ok && email != nil {
 		req.PayerEmail = email.(string)
 	}
 
-	println("paso user_email")
-
-
-
 	resp, err := h.uc.CreateSubscriptionCheckout(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": resp})
@@ -93,7 +98,7 @@ func (h *PaymentHandler) CreateSubscriptionCheckout(c *gin.Context) {
 func (h *PaymentHandler) GetMarketplaceCommission(c *gin.Context) {
 	commission, err := h.uc.GetMarketplaceCommission(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": commission})
@@ -106,17 +111,21 @@ func (h *PaymentHandler) CreateMarketplaceCheckout(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if err := validate.Struct(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-	if userID, ok := c.Get("userId"); ok && userID != nil {
+	if userID, ok := c.Get("user_id"); ok && userID != nil {
 		req.UserID = userID.(string)
 	}
-	if email, ok := c.Get("email"); ok && email != nil {
+	if email, ok := c.Get("user_email"); ok && email != nil {
 		req.PayerEmail = email.(string)
 	}
 
 	resp, err := h.uc.CreateMarketplaceCheckout(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": resp})
@@ -143,7 +152,7 @@ func (h *PaymentHandler) ListPayments(c *gin.Context) {
 
 	payments, err := h.uc.ListPayments(c.Request.Context(), from, to)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": payments})
@@ -163,6 +172,10 @@ func (h *PaymentHandler) RegisterManualPayment(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if err := validate.Struct(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
 	if err := h.uc.RegisterManualPayment(c.Request.Context(), uint(id), req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -175,7 +188,7 @@ func (h *PaymentHandler) RegisterManualPayment(c *gin.Context) {
 func (h *PaymentHandler) AdminListTrials(c *gin.Context) {
 	trials, err := h.uc.AdminListTrials(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": trials})
@@ -188,8 +201,12 @@ func (h *PaymentHandler) AdminAssignTrial(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if err := validate.Struct(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	if err := h.uc.AdminAssignTrial(c.Request.Context(), req); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{"status": "assigned"})
@@ -204,6 +221,10 @@ func (h *PaymentHandler) AdminExtendTrial(c *gin.Context) {
 	}
 	var req usecase.AdminExtendTrialRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validate.Struct(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -232,7 +253,7 @@ func (h *PaymentHandler) AdminCancelTrial(c *gin.Context) {
 func (h *PaymentHandler) AdminListPlans(c *gin.Context) {
 	plans, err := h.uc.AdminGetPlans(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": plans})
@@ -247,7 +268,7 @@ func (h *PaymentHandler) AdminGetPlanByID(c *gin.Context) {
 	}
 	plan, err := h.uc.AdminGetPlanByID(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	if plan == nil {
@@ -264,9 +285,13 @@ func (h *PaymentHandler) AdminCreatePlan(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if err := validate.Struct(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	plan, err := h.uc.AdminCreatePlan(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{"data": plan})
@@ -281,6 +306,10 @@ func (h *PaymentHandler) AdminUpdatePlan(c *gin.Context) {
 	}
 	var req usecase.UpdatePlanRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validate.Struct(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -314,7 +343,7 @@ func (h *PaymentHandler) AdminLinkMPPlan(c *gin.Context) {
 		return
 	}
 	if err := h.uc.AdminLinkMPPlan(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "linked"})
@@ -327,7 +356,6 @@ func parseUintParam(c *gin.Context, name string) (uint, error) {
 
 // POST /payments/webhook
 func (h *PaymentHandler) HandleWebhook(c *gin.Context) {
-
 	var payload usecase.WebhookPayload
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -337,7 +365,7 @@ func (h *PaymentHandler) HandleWebhook(c *gin.Context) {
 	signature := c.GetHeader("X-Signature")
 	requestID := c.GetHeader("X-Request-ID")
 	if err := h.uc.HandleWebhook(c.Request.Context(), payload, signature, requestID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})

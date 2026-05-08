@@ -1,10 +1,10 @@
 package config
 
 import (
-	"log"
 	"sync"
 
 	"github.com/jnieto01/utils-01/database"
+	"github.com/jnieto01/utils-01/logger"
 	"github.com/jnieto01/utils-01/migration"
 	"github.com/jnieto01/utils-01/rabbitmq"
 	"github.com/spf13/viper"
@@ -58,7 +58,7 @@ func Load(path string) *Config {
 		viper.SetConfigType(configType)
 		viper.AddConfigPath(path)
 		if err := viper.ReadInConfig(); err != nil {
-			log.Fatalf("fatal error reading config: %v", err)
+			logger.Fatal("fatal error reading config", err)
 		}
 
 		cfg = &Config{}

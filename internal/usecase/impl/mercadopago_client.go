@@ -204,7 +204,7 @@ func (c *mpClient) CreatePreapprovalPlan(ctx context.Context, req MPPreapprovalP
 // Signed payload: "id:<data.id>;request-id:<x-request-id>;ts:<ts>;"
 func (c *mpClient) VerifyWebhookSignature(dataID, requestID, xSignature string) bool {
 	if c.webhookSecret == "" || xSignature == "" {
-		return true // skip verification if secret not configured
+		return false // reject if secret not configured or signature missing
 	}
 
 	var ts, v1 string

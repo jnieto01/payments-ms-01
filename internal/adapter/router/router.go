@@ -10,6 +10,7 @@ import (
 func SetupRouter(paymentHandler *handler.PaymentHandler, jwtService utilsjwt.JWTService) *gin.Engine {
 	r := gin.Default()
 	r.Use(middleware.CORSMiddleware())
+	r.Use(middleware.RateLimitMiddleware())
 
 	api := r.Group("/payments-ms-01/api")
 	{

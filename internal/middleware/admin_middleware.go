@@ -20,7 +20,7 @@ func AdminMiddleware(jwtService utilsjwt.JWTService) gin.HandlerFunc {
 			tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
 		}
 		if tokenStr == "" {
-			if cookie, err := c.Cookie("token"); err == nil {
+			if cookie, err := c.Cookie("jwt"); err == nil {
 				tokenStr = cookie
 			}
 		}

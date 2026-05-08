@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/jnieto01/payments-ms-01/internal/adapter/rest/handler"
 	"github.com/jnieto01/payments-ms-01/internal/adapter/router"
 	appconfig "github.com/jnieto01/payments-ms-01/internal/config"
@@ -14,6 +15,7 @@ import (
 	"github.com/jnieto01/payments-ms-01/internal/usecase/impl"
 	"github.com/jnieto01/utils-01/database"
 	utilsjwt "github.com/jnieto01/utils-01/jwt"
+	"github.com/jnieto01/utils-01/logger"
 	"github.com/jnieto01/utils-01/migration"
 	"github.com/jnieto01/utils-01/rabbitmq"
 	"github.com/redis/go-redis/v9"
@@ -24,18 +26,22 @@ const pathConfig = "./config/"
 func main() {
 	cfg := appconfig.Load(pathConfig)
 
-	// Database
+	logger.SetupOut(cfg.Server.GoEnv)
+	logger.SetService("payments-ms")
+	if strings.ToUpper(cfg.Server.GoEnv) == "PROD" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+	logger.Info("Starting payments-ms-01...")
+
 	mysqlDB, err := database.NewDatabase(cfg.MySQL)
 	if err != nil {
-		log.Fatalf("Failed to create database: %v", err)
+		logger.Fatal("Failed to create database", err)
 	}
 
-	// Migrations
 	if err := migration.RunAutoMigrations(&cfg.MySQL, cfg.MySQLMigration); err != nil {
-		log.Fatalf("Failed to run migrations: %v", err)
+		logger.Fatal("Failed to run migrations", err)
 	}
 
-	// Redis (raw client for SetNX idempotency)
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     cfg.RedisAddr,
 		Password: cfg.RedisPassword,
@@ -43,10 +49,8 @@ func main() {
 		PoolSize: cfg.RedisPoolSize,
 	})
 
-	// JWT service — same implementation as user-ms for compatible token validation
 	jwtService := utilsjwt.NewJWTService(cfg.JWT.SecretKey)
 
-	// Wire up dependencies
 	paymentRepo := repoImpl.NewPaymentRepository(mysqlDB.DB)
 	trialRepo := repoImpl.NewTrialRepository(mysqlDB.DB)
 	planRepo := repoImpl.NewPlanRepository(mysqlDB.DB)
@@ -54,26 +58,25 @@ func main() {
 	paymentUC := impl.NewPaymentUsecase(paymentRepo, trialRepo, planRepo, commissionRepo, redisClient, cfg.MercadoPago, cfg.RabbitMQ)
 	paymentHandler := handler.NewPaymentHandler(paymentUC)
 
-	// Start RabbitMQ consumer for manual advertising payment confirmations from sports-ms
 	if cfg.RabbitMQ.Host != "" {
 		go startManualAdPaymentConsumer(cfg.RabbitMQ, paymentUC)
 	}
 
 	r := router.SetupRouter(paymentHandler, jwtService)
 
-	log.Printf("payments-ms-01 starting on port %d", cfg.Server.Port)
+	logger.Info("payments-ms-01 listening on port %d", cfg.Server.Port)
 	if err := r.Run(fmt.Sprintf(":%d", cfg.Server.Port)); err != nil {
-		log.Fatalf("server error: %v", err)
+		logger.Fatal("server error", err)
 	}
 }
 
 func startManualAdPaymentConsumer(rmqCfg rabbitmq.Config, uc usecase.PaymentUsecase) {
 	consumer, err := rabbitmq.NewMessageService(rmqCfg, "advertising.payment.manual.confirmed")
 	if err != nil {
-		log.Printf("WARN: manual-ad-payment consumer: failed to connect to RabbitMQ: %v", err)
+		logger.Warn("manual-ad-payment consumer: failed to connect to RabbitMQ", err)
 		return
 	}
-	log.Printf("manual-ad-payment consumer: listening on queue advertising.payment.manual.confirmed")
+	logger.Info("manual-ad-payment consumer: listening on queue advertising.payment.manual.confirmed")
 	if err := consumer.Consume(context.Background(), "payments-ms-ad-manual-consumer", func(body []byte) error {
 		var msg usecase.AdvertisingPaymentConfirmedMsg
 		if err := json.Unmarshal(body, &msg); err != nil {
@@ -81,6 +84,6 @@ func startManualAdPaymentConsumer(rmqCfg rabbitmq.Config, uc usecase.PaymentUsec
 		}
 		return uc.HandleManualAdPaymentConfirmed(context.Background(), msg)
 	}); err != nil {
-		log.Printf("ERROR: manual-ad-payment consumer: %v", err)
+		logger.Error("manual-ad-payment consumer failed", err)
 	}
 }
