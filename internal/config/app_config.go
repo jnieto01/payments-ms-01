@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/jnieto01/utils-01/database"
@@ -57,6 +58,8 @@ func Load(path string) *Config {
 		viper.SetConfigName(configName)
 		viper.SetConfigType(configType)
 		viper.AddConfigPath(path)
+		viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+		viper.AutomaticEnv()
 		if err := viper.ReadInConfig(); err != nil {
 			logger.Fatal("fatal error reading config", err)
 		}

@@ -1,0 +1,27 @@
+services:
+  payments-ms:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${IMAGE_NAME:-nvf/payments-ms}:${IMAGE_VERSION:-latest}
+    container_name: ${CONTAINER_NAME:-payments-ms}
+    restart: ${RESTART_POLICY:-unless-stopped}
+    ports:
+      - "${BIND_ADDRESS:-0.0.0.0}:${HOST_PORT:-8083}:8080"
+    env_file:
+      - .env
+    networks:
+      - app_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      nvf.monitored: "true"
+      nvf.type: "go-service"
+
+networks:
+  app_network:
+    name: ${DOCKER_NETWORK:-local_network}
+    external: true
