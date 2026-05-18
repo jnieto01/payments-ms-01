@@ -23,9 +23,15 @@ jobs:
           script: |
             cd /var/www/nvf-sports-prod/payments-ms-01
             git pull origin main
+            OLD_IMAGE_VERSION=$(grep "^IMAGE_VERSION=" .env | cut -d= -f2)
+            IMAGE_NAME=$(grep "^IMAGE_NAME=" .env | cut -d= -f2)
             export IMAGE_VERSION=$(git rev-parse --short HEAD)
             export GITHUB_TOKEN=$(cat /etc/nvf/build-secrets/github_token)
-            docker compose up -d --build
+            docker compose build --no-cache
+            docker compose up -d --force-recreate --remove-orphans
             unset GITHUB_TOKEN
             sed -i "s/^IMAGE_VERSION=.*/IMAGE_VERSION=${IMAGE_VERSION}/" .env
+            docker images "${IMAGE_NAME}" --format "{{.Tag}}" \
+              | grep -vE "^(${IMAGE_VERSION}|${OLD_IMAGE_VERSION}|<none>)$" \
+              | xargs -r -I{} docker rmi "${IMAGE_NAME}:{}" 2>/dev/null || true
             docker image prune -f
