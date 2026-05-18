@@ -1,8 +1,20 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# payments-ms-01 — docker-compose.yml
+#
+# Archivo único para todos los ambientes (local, stage, prod).
+# Toda la configuración proviene del archivo .env — nunca valores hardcodeados.
+# cp .env.example .env  y rellena los valores según el ambiente.
+#
+# Uso: docker compose up -d --build
+# ─────────────────────────────────────────────────────────────────────────────
+
 services:
   payments-ms:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        GITHUB_TOKEN: ${GITHUB_TOKEN}
     image: ${IMAGE_NAME:-nvf/payments-ms}:${IMAGE_VERSION:-latest}
     container_name: ${CONTAINER_NAME:-payments-ms}
     restart: ${RESTART_POLICY:-unless-stopped}

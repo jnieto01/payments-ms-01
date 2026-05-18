@@ -4,13 +4,14 @@ go 1.24.1
 
 require (
 	github.com/gin-gonic/gin v1.11.0
-	github.com/jnieto01/utils-01 v1.0.32
+	github.com/jnieto01/utils-01 v1.0.34
 	github.com/mercadopago/sdk-go v1.8.0
 	github.com/redis/go-redis/v9 v9.14.0
 	github.com/spf13/viper v1.20.0
-	gorm.io/driver/mysql v1.6.0
 	gorm.io/gorm v1.31.0
 )
+
+require gorm.io/driver/mysql v1.6.0 // indirect
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
@@ -76,4 +77,3 @@ require (
 	gorm.io/driver/postgres v1.5.11 // indirect
 )
 
-replace github.com/jnieto01/utils-01 => ../utils-01

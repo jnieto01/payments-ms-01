@@ -1,0 +1,31 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  deploy-stage:
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Desplegar en VPS (Staging)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /var/www/nvf-sports-stage/payments-ms-01
+            git pull origin develop
+            export IMAGE_VERSION=$(git rev-parse --short HEAD)
+            export GITHUB_TOKEN=$(cat /etc/nvf/build-secrets/github_token)
+            docker compose up -d --build
+            unset GITHUB_TOKEN
+            sed -i "s/^IMAGE_VERSION=.*/IMAGE_VERSION=${IMAGE_VERSION}/" .env
+            docker image prune -f
