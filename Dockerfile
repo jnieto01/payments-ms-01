@@ -11,7 +11,7 @@ ENV GONOSUMDB=github.com/jnieto01/*
 RUN git config --global url."https://${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
 
 COPY go.mod go.sum ./
-RUN go mod download
+RUN go mod tidy
 
 COPY . .
 
