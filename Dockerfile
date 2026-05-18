@@ -11,11 +11,11 @@ ENV GONOSUMDB=github.com/jnieto01/*
 RUN git config --global url."https://${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
 
 COPY go.mod go.sum ./
-RUN go mod tidy
+RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/api
+RUN go mod tidy && CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/api
 
 # Final stage
 FROM alpine:latest
