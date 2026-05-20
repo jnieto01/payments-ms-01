@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -19,7 +20,14 @@ import (
 // Compile-time check that all interface methods are implemented.
 var _ usecase.PaymentUsecase = (*paymentUsecaseImpl)(nil)
 
-const queueMarketplaceAdApproved = "marketplace.ad.approved"
+const defaultQueueMarketplaceAdApproved = "marketplace.ad.approved"
+
+func queueMarketplaceAdApproved() string {
+	if v := os.Getenv("MARKETPLACE_AD_APPROVED_QUEUE"); v != "" {
+		return v
+	}
+	return defaultQueueMarketplaceAdApproved
+}
 
 type paymentUsecaseImpl struct {
 	paymentRepo    domainrepo.PaymentRepository
@@ -43,7 +51,7 @@ func NewPaymentUsecase(
 ) usecase.PaymentUsecase {
 	var adPublisher *rabbitmq.MessageService
 	if rmqCfg.Host != "" {
-		pub, err := rabbitmq.NewMessageService(rmqCfg, queueMarketplaceAdApproved)
+		pub, err := rabbitmq.NewMessageService(rmqCfg, queueMarketplaceAdApproved())
 		if err != nil {
 			fmt.Printf("WARN: could not connect to RabbitMQ for ad publisher: %v\n", err)
 		} else {
@@ -328,6 +336,7 @@ func (u *paymentUsecaseImpl) CreateSubscriptionCheckout(ctx context.Context, req
 		Plan:           req.Plan,
 		Amount:         plan.Price,
 		Currency:       plan.Currency,
+		Country:        resolveCountry(req.Country),
 		Status:         entity.PaymentStatusPending,
 		IdempotencyKey: req.IdempotencyKey,
 		MPPreferenceID: mpReferenceID,
@@ -692,7 +701,8 @@ func (u *paymentUsecaseImpl) HandleManualAdPaymentConfirmed(ctx context.Context,
 		UserID:         msg.SellerID,
 		Type:           entity.PaymentTypeAdvertising,
 		Amount:         msg.Amount,
-		Currency:       "ARS",
+		Currency:       resolveCurrency(msg.Currency),
+		Country:        resolveCountry(msg.Country),
 		Status:         entity.PaymentStatusApproved,
 		IdempotencyKey: idempotencyKey,
 		ItemID:         &msg.ItemID,
@@ -1019,6 +1029,7 @@ func (u *paymentUsecaseImpl) CreateMarketplaceCheckout(ctx context.Context, req 
 		Type:           entity.PaymentTypeAdvertising,
 		Amount:         commissionAmt,
 		Currency:       currency,
+		Country:        resolveCountry(req.Country),
 		Status:         entity.PaymentStatusPending,
 		IdempotencyKey: req.IdempotencyKey,
 		MPPreferenceID: pref.ID,
@@ -1036,4 +1047,20 @@ func (u *paymentUsecaseImpl) CreateMarketplaceCheckout(ctx context.Context, req 
 		InitPoint:     pref.InitPoint,
 		PreferenceID:  pref.ID,
 	}, nil
+}
+
+// resolveCountry normalises a country code from the client, defaulting to "AR".
+func resolveCountry(c string) string {
+	if len(c) == 2 {
+		return strings.ToUpper(c)
+	}
+	return "AR"
+}
+
+// resolveCurrency returns the currency code or "ARS" as fallback.
+func resolveCurrency(c string) string {
+	if c != "" {
+		return strings.ToUpper(c)
+	}
+	return "ARS"
 }

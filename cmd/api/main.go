@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -71,12 +72,16 @@ func main() {
 }
 
 func startManualAdPaymentConsumer(rmqCfg rabbitmq.Config, uc usecase.PaymentUsecase) {
-	consumer, err := rabbitmq.NewMessageService(rmqCfg, "advertising.payment.manual.confirmed")
+	queueName := os.Getenv("AD_PAYMENT_MANUAL_QUEUE")
+	if queueName == "" {
+		queueName = "advertising.payment.manual.confirmed"
+	}
+	consumer, err := rabbitmq.NewMessageService(rmqCfg, queueName)
 	if err != nil {
 		logger.Warn("manual-ad-payment consumer: failed to connect to RabbitMQ", err)
 		return
 	}
-	logger.Info("manual-ad-payment consumer: listening on queue advertising.payment.manual.confirmed")
+	logger.Info("manual-ad-payment consumer: listening on queue %s", queueName)
 	if err := consumer.Consume(context.Background(), "payments-ms-ad-manual-consumer", func(body []byte) error {
 		var msg usecase.AdvertisingPaymentConfirmedMsg
 		if err := json.Unmarshal(body, &msg); err != nil {

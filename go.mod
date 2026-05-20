@@ -4,7 +4,7 @@ go 1.24.1
 
 require (
 	github.com/gin-gonic/gin v1.11.0
-	github.com/jnieto01/utils-01 v1.0.34
+	github.com/jnieto01/utils-01 v1.0.35
 	github.com/mercadopago/sdk-go v1.8.0
 	github.com/redis/go-redis/v9 v9.14.0
 	github.com/spf13/viper v1.20.0
@@ -76,4 +76,3 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/postgres v1.5.11 // indirect
 )
-
