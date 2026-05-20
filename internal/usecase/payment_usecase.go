@@ -14,6 +14,7 @@ type CheckoutRequest struct {
 	Plan           string  `json:"plan"            validate:"required,oneof=pro avanzado"`
 	IdempotencyKey string  `json:"idempotency_key" validate:"required"`
 	Amount         float64 `json:"amount"`
+	Country        string  `json:"country,omitempty"` // ISO 3166-1 alpha-2, e.g. "AR", "VE", "CO"
 }
 
 // CheckoutType indicates whether the checkout is a one-time preference or a recurring preapproval.
@@ -80,6 +81,7 @@ type MarketplaceCheckoutRequest struct {
 	ItemTitle      string  `json:"item_title"  validate:"required"`
 	Price          float64 `json:"price"       validate:"required,gt=0"`
 	IdempotencyKey string  `json:"idempotency_key" validate:"required"`
+	Country        string  `json:"country,omitempty"` // ISO 3166-1 alpha-2, e.g. "AR", "VE", "CO"
 }
 
 // MarketplaceCheckoutResponse is returned after creating the MP preference.
@@ -154,7 +156,9 @@ type AdvertisingPaymentConfirmedMsg struct {
 	ItemID        int64   `json:"item_id"`
 	SellerID      string  `json:"seller_id"`
 	Amount        float64 `json:"amount"`
-	PaymentMethod string  `json:"payment_method"` // transfer | mercado_pago
+	PaymentMethod string  `json:"payment_method"` // bank_transfer | crypto_usdt | mercado_pago
+	Currency      string  `json:"currency"`       // e.g. "ARS", "USDT"
+	Country       string  `json:"country"`        // ISO 3166-1 alpha-2, e.g. "AR", "VE", "CO"
 	ConfirmedAt   string  `json:"confirmed_at"`   // RFC3339
 }
 

@@ -27,6 +27,7 @@ type Payment struct {
 	Plan           string        `gorm:"type:varchar(50)"                   json:"plan,omitempty"`
 	Amount         float64       `gorm:"type:decimal(12,2);not null"        json:"amount"`
 	Currency       string        `gorm:"type:varchar(10);not null;default:ARS" json:"currency"`
+	Country        string        `gorm:"type:varchar(2);not null;default:AR;index" json:"country"`
 	Status         PaymentStatus `gorm:"type:varchar(50);not null;default:pending" json:"status"`
 	IdempotencyKey string        `gorm:"type:varchar(100);not null;uniqueIndex" json:"idempotency_key"`
 	MPPaymentID    *int64        `gorm:"index"                              json:"mp_payment_id,omitempty"`
