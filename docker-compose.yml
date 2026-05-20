@@ -32,6 +32,7 @@ services:
     labels:
       nvf.monitored: "true"
       nvf.type: "go-service"
+      nvf.env: "${APP_ENV:-local}"
 
 networks:
   app_network:
