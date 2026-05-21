@@ -23,6 +23,7 @@ jobs:
           script: |
             set -e
             cd /var/www/nvf-sports-prod/payments-ms-01
+            git config --global --add safe.directory "$(pwd)"
             sudo chown -R "$(whoami):" . 2>/dev/null || true
             git stash
             git pull origin main
