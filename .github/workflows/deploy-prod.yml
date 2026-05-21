@@ -21,13 +21,18 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            set -e
             cd /var/www/nvf-sports-prod/payments-ms-01
             git pull origin main
             OLD_IMAGE_VERSION=$(grep "^IMAGE_VERSION=" .env | cut -d= -f2)
             IMAGE_NAME=$(grep "^IMAGE_NAME=" .env | cut -d= -f2)
             export IMAGE_VERSION=$(git rev-parse --short HEAD)
             export GITHUB_TOKEN=$(cat /etc/nvf/build-secrets/github_token)
-            docker compose build --no-cache
+            for attempt in 1 2 3; do
+              docker compose build --no-cache && break
+              echo "Build attempt $attempt failed, retrying in 15s..."
+              sleep 15
+            done
             docker compose up -d --force-recreate --remove-orphans
             unset GITHUB_TOKEN
             sed -i "s/^IMAGE_VERSION=.*/IMAGE_VERSION=${IMAGE_VERSION}/" .env

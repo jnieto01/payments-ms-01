@@ -15,6 +15,7 @@ services:
       dockerfile: Dockerfile
       args:
         GITHUB_TOKEN: ${GITHUB_TOKEN}
+      network: host
     image: ${IMAGE_NAME:-nvf/payments-ms}:${IMAGE_VERSION:-latest}
     container_name: ${CONTAINER_NAME:-payments-ms}
     restart: ${RESTART_POLICY:-unless-stopped}
