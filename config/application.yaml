@@ -1,13 +1,13 @@
 server:
-  port: 8083
-  host: "localhost"
+  port: 8080
+  host: "0.0.0.0"
   context-path: "/payments-ms-01"
   goEnv: "local"
 
 database:
   mysql:
     name: "payments_ms_01"
-    host: "localhost"
+    host: "mysql"
     port: 3306
     user: "root"
     password: "123456"
@@ -23,7 +23,7 @@ golang-migrate:
 
 data:
   redis:
-    host: "localhost"
+    host: "redis"
     port: "6379"
     password: ""
     db: 1
@@ -41,13 +41,8 @@ mercadopago:
   # back_url base para Checkout Pro — el usecase agrega el sufijo /?payment=success|pending|failure
   back_url: "https://4b45-45-161-118-110.ngrok-free.app/app/es/home"
 
-payment-trasnfer:
-  cbu/cvu: "1234567890"
-  alias: "test.mp"
-  
-
 rabbitmq:
-  host: "localhost"
+  host: "rabbitmq"
   port: "5672"
   username: "guest"
   password: "guest"

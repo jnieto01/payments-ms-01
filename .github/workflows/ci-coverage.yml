@@ -1,0 +1,58 @@
+name: CI & Coverage
+
+on:
+  # push:
+  #   branches: [ "main", "develop" ]
+  workflow_dispatch:
+
+# payments-ms usa viper directamente (sin AutomaticEnv), por lo que el CI
+# requiere un application.yaml de prueba en lugar de env vars.
+# El archivo config/application.yaml del repo se usa directamente en CI.
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: 123456
+          MYSQL_DATABASE: payments_ms_01
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    env:
+      GOPROXY: direct
+      GOPRIVATE: github.com/jnieto01/*
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Run tests with coverage
+        run: |
+          go test -coverprofile=coverage.out ./...
+          go tool cover -html=coverage.out -o coverage.html
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Check coverage threshold
+        run: |
+          COVERAGE_THRESHOLD=30
+          sudo apt-get install -y bc
+          ACTUAL_COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          echo "Cobertura actual: $ACTUAL_COVERAGE%"
+          if [ "$(echo "$ACTUAL_COVERAGE >= $COVERAGE_THRESHOLD" | bc -l)" -ne 1 ]; then
+            echo "Error: cobertura insuficiente ($ACTUAL_COVERAGE% < $COVERAGE_THRESHOLD%)."
+            exit 1
+          fi
