@@ -23,6 +23,7 @@ jobs:
           script: |
             set -e
             cd /var/www/nvf-sports-stage/payments-ms-01
+            sudo chown -R "$(whoami):" . 2>/dev/null || true
             git stash
             git pull origin develop
             git stash drop 2>/dev/null || true
